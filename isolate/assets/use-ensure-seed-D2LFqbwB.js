@@ -1,0 +1,1 @@
+import{r as t}from"./react-vendor-CHqZ9CKF.js";import{d as o,a as n}from"./index-CF_NkQ-z.js";let r=!1;function i(){const e=o(n.seed.seedDemoData),s=t.useRef(!1);t.useEffect(()=>{r||s.current||(s.current=!0,r=!0,e().then(()=>{}).catch(a=>console.warn("[FundRail] demo seed failed:",a)))},[e])}export{i as u};
