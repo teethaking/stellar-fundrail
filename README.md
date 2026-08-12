@@ -117,6 +117,20 @@ docker compose up --build    # web (http://localhost:5173) + contracts (runs car
 
 ---
 
+# Contributing
+
+FundRail maintains a 30-issue contributor backlog designed for people getting assigned
+work on a real open-source Web3 codebase. Issues live in `.github/ISSUES/` with acceptance
+criteria, labels, and difficulty ratings — file them on GitHub with:
+
+```bash
+gh auth login          # once
+bun run issues:create  # files all 30 issues with labels (add --dry-run to preview)
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide: how to claim an issue and get
+assigned, the issue areas, local setup, and the PR checklist.
+
 # Contributor conventions
 
 ## Using Authentication
