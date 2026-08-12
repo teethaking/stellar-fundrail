@@ -1,0 +1,29 @@
+# FundRail — one-command reproducible development environment.
+#
+#   docker compose up --build
+#
+# Brings up:
+#   * web        — the React/Vite frontend (http://localhost:5173)
+#   * contracts  — the Soroban workspace: builds the deployable wasm and runs
+#                  `cargo test --workspace` on startup
+
+services:
+  web:
+    build:
+      context: .
+      args:
+        # Point this at your Convex deployment (or set VITE_CONVEX_URL in a
+        # .env file in the build context).
+        VITE_CONVEX_URL: ${VITE_CONVEX_URL:-}
+    ports:
+      - "5173:4173"
+
+  contracts:
+    build:
+      context: ./contracts
+      dockerfile: Dockerfile
+    volumes:
+      - ./contracts:/contracts
+    # Re-run tests on every `docker compose up`, and keep the container
+    # running for interactive work (`docker compose exec contracts bash`).
+    command: ["bash", "-lc", "cargo test --workspace && sleep infinity"]

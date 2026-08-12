@@ -1,272 +1,157 @@
-## Overview
+# FundRail
 
-This project uses the following tech stack:
-- Vite
-- Typescript
-- React Router v7 (all imports from `react-router` instead of `react-router-dom`)
-- React 19 (for frontend components)
-- Tailwind v4 (for styling)
-- Shadcn UI (for UI components library)
-- Lucide Icons (for icons)
-- Convex (for backend & database)
-- Convex Auth (for authentication)
-- Framer Motion (for animations)
-- Three js (for 3d models)
+Decentralized funding and contribution platform for public goods, inspired by protocols like
+[Drips](https://drips.network). The entire value layer runs as Rust smart contracts on
+**Stellar Soroban** (deployable to Testnet); the web app is a TypeScript + React interface over
+the same rails.
 
-All relevant files live in the 'src' directory.
+**This is a portfolio-quality, open-source reference implementation — experimental, tested,
+and intended for Testnet. Not audited. Do not move real funds on Mainnet without your own review.**
 
-Use bun for the package manager.
+## What it does
 
-## Setup
+- Connect a Stellar wallet (Freighter extension or a built-in demo wallet)
+- Register public projects with off-chain metadata
+- Create **recurring funding streams** (per-second accrual, pause/resume/cancel, capped withdrawals)
+- Create **payment splits** (shares summing to exactly 10,000 bps, deposit → distribute → claim)
+- Donate to projects with transparent on-chain support history
+- Explore funded projects, track streams, splits, and full activity history
 
-This project is set up already and running on a cloud environment, as well as a convex development in the sandbox.
+## Architecture
 
-## Environment Variables
+```
+contracts/            Rust + Soroban (Stellar's smart-contract platform)
+├── funding_stream/   per-second streams: create, pause, resume, cancel, withdraw
+├── splitter/         shares summing to 10,000 bps: create, deposit, distribute, claim
+├── registry/         public project registry + on-chain support history
+└── token_vault/      reusable escrow primitive (deposit / withdraw / ownership)
 
-The project is set up with project specific CONVEX_DEPLOYMENT and VITE_CONVEX_URL environment variables on the client side.
+src/                  TypeScript + React web app
+├── convex/           Convex backend (schema, queries, mutations, seed data)
+├── pages/            Landing, Explore, ProjectDetail, Dashboard, Streams, Splitter, ...
+├── components/       shadcn/ui components, wallet + project + stream + split UI
+└── lib/              shared Stellar formatting + stream math (mirrors the contracts)
+```
 
-The convex server has a separate set of environment variables that are accessible by the convex backend.
+The web app runs against a **Convex-backed simulation** of the contracts so the whole product
+can be explored without a wallet — same math, same rules, same ledger. The real contracts in
+`contracts/` are deployable with the Soroban CLI and are the source of truth.
 
-Currently, these variables include auth-specific keys: JWKS, JWT_PRIVATE_KEY, and SITE_URL.
+## The contracts
 
+| Contract | Purpose | Key functions |
+| --- | --- | --- |
+| `funding_stream` | Escrow `total_amount` of a token, release it to the recipient per-second; sender pauses/resumes/cancels, recipient withdraws up to the claimable balance | `create_stream`, `pause_stream`, `resume_stream`, `cancel_stream`, `withdraw`, `claimable_balance`, `stream_details` |
+| `splitter` | Hold deposits and fan them out proportionally; shares validated to sum to 10,000 bps; edits locked while funds are pending | `create_split`, `update_split`, `deposit`, `distribute`, `claim`, `remove_recipient` |
+| `registry` | Public project directory; only bounded metadata on-chain, rich profiles behind `metadata_uri`; donations transfer supporter → project wallet directly and are recorded on-chain | `register_project`, `update_project`, `set_project_active`, `project_details`, `my_projects`, `list_projects`, `support_project`, `support_history` |
+| `token_vault` | Per-(owner, token) custody box; anyone deposits, only the owner withdraws | `create_vault`, `deposit`, `withdraw`, `transfer_ownership`, `vault_details`, `vault_balance` |
 
-# Using Authentication (Important!)
+Security discipline across all four: every state change authenticates the caller with
+`Address::require_auth`, all token movement goes through the Stellar token interface,
+balances are updated **before** transfers (checks-effects-interactions), arithmetic uses
+checked `i128` operations, and the release profile keeps overflow panics enabled.
 
-You must follow these conventions when using authentication.
+## Web app routes
 
-## Auth is already set up.
+| Route | Description |
+| --- | --- |
+| `/` | Landing page |
+| `/explore` | Explore funded projects |
+| `/project/:slug` | Project details, supporters, funding history |
+| `/dashboard` | User dashboard (protected) |
+| `/streams` | Create and manage funding streams |
+| `/splitter` | Create and manage payment splits |
+| `/activity` | Incoming/outgoing payment history |
+| `/docs` | Developer documentation |
+| `/about` | About the project |
 
-All convex authentication functions are already set up. The auth currently uses email OTP and anonymous users, but can support more.
+## Getting started
 
-The email OTP configuration is defined in `src/convex/auth/emailOtp.ts`. DO NOT MODIFY THIS FILE.
+```bash
+bun install          # install dependencies
+bun run dev          # start the Vite dev server (managed by the platform preview)
+bun tsc -b --noEmit  # typecheck
+bun vitest run       # frontend unit tests (stream math + Stellar helpers)
+```
 
-Also, DO NOT MODIFY THESE AUTH FILES: `src/convex/auth.config.ts` and `src/convex/auth.ts`.
+The project is pre-configured with `CONVEX_DEPLOYMENT` / `VITE_CONVEX_URL` for the Convex
+backend and runs on a managed dev environment. Convex Auth is set up (email OTP + anonymous).
 
-## Using Convex Auth on the backend
+## Contracts: build, test, deploy
 
-On the `src/convex/users.ts` file, you can use the `getCurrentUser` function to get the current user's data.
+```bash
+cd contracts
+cargo test --workspace                                     # unit + integration tests
+cargo build --workspace --release --target wasm32-unknown-unknown   # deployable Soroban wasm
 
-## Using Convex Auth on the frontend
+# deploy to Stellar Testnet with the Soroban CLI
+soroban keys generate alice --network testnet
+soroban keys fund alice --network testnet
+soroban contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/funding_stream.wasm \
+  --source alice --network testnet
+```
 
-The `/auth` page is already set up to use auth. Navigate to `/auth` for all log in / sign up sequences.
+## CI/CD
 
-You MUST use this hook to get user data. Never do this yourself without the hook:
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push/PR:
+
+- **contracts** — Rust build, full `cargo test --workspace`, and a release wasm build
+- **frontend** — `bun tsc -b --noEmit` and `bun vitest run`
+
+## Docker
+
+Reproducible environments for both halves of the repo:
+
+```bash
+docker compose up --build    # web (http://localhost:5173) + contracts (runs cargo test)
+```
+
+- Root `Dockerfile` — multi-stage build of the web app (Bun → static assets, served with `vite preview`). Pass `--build-arg VITE_CONVEX_URL=...` or set it in a `.env` file.
+- `contracts/Dockerfile` — pinned Rust toolchain that builds the wasm and runs the full test suite, so every contributor sees identical results.
+
+## Environment variables
+
+- `VITE_CONVEX_URL` / `CONVEX_DEPLOYMENT` — Convex client/deployment URLs (already set in this environment)
+- Convex server env: `JWKS`, `JWT_PRIVATE_KEY`, `SITE_URL` (auth)
+
+---
+
+# Contributor conventions
+
+## Using Authentication
+
+- All Convex auth functions are already set up (email OTP + anonymous).
+- **Do not modify** `src/convex/auth/emailOtp.ts`, `src/convex/auth.config.ts`, or `src/convex/auth.ts`.
+- Backend: use `getCurrentUser` from `src/convex/users.ts` for the current user's data.
+- Frontend: always use the `useAuth` hook from `@/hooks/use-auth`:
+
 ```typescript
 import { useAuth } from "@/hooks/use-auth";
-
 const { isLoading, isAuthenticated, user, signIn, signOut } = useAuth();
 ```
 
-## Protected Routes
-
-The starter `/dashboard` route is protected with `RequireAuth`, which sends
-signed-out users to `/auth?returnTo=<current route>`. Extend that page for the
-product's authenticated experience, and reuse `RequireAuth` when adding another
-protected route.
-
-## Auth Page
-
-The auth page is defined in `src/pages/Auth.tsx`. Send sign-in and sign-up actions
-to `/auth`.
-
-## Authorization
-
-You can perform authorization checks on the frontend and backend.
-
-On the frontend, you can use the `useAuth` hook to get the current user's data and authentication state.
-
-You should also be protecting queries, mutations, and actions at the base level, checking for authorization securely.
-
-## Adding a redirect after auth
-
-The `/auth` route in `src/main.tsx` redirects to `/dashboard` by default. If the
-product's main authenticated route is different, update `redirectAfterAuth` to
-that route. A validated same-origin `returnTo` query parameter takes priority so
-users can resume the protected page they originally requested. Never leave an
-authenticated product redirecting back to the public landing page.
-
-## Complete authenticated products
-
-When the requested product implies accounts, a workspace, a dashboard, or other
-signed-in functionality, the task is not complete with only a landing page and
-auth form. Build the main authenticated experience, protect its route, and verify
-that signing in reaches it.
-
-# Frontend Conventions
-
-You will be using the Vite frontend with React 19, Tailwind v4, and Shadcn UI.
-
-Generally, pages should be in the `src/pages` folder, and components should be in the `src/components` folder.
-
-Shadcn primitives are located in the `src/components/ui` folder and should be used by default.
-
-## Page routing
-
-Your page component should go under the `src/pages` folder.
-
-When adding a page, update the react router configuration in `src/main.tsx` to include the new route you just added.
-
-## Shad CN conventions
-
-Follow these conventions when using Shad CN components, which you should use by default.
-- Remember to use "cursor-pointer" to make the element clickable
-- For title text, use the "tracking-tight font-bold" class to make the text more readable
-- Always make apps MOBILE RESPONSIVE. This is important
-- AVOID NESTED CARDS. Try and not to nest cards, borders, components, etc. Nested cards add clutter and make the app look messy.
-- AVOID SHADOWS. Avoid adding any shadows to components. stick with a thin border without the shadow.
-- Avoid skeletons; instead, use the loader2 component to show a spinning loading state when loading data.
-
-
-## Landing Pages
-
-You must always create good-looking designer-level styles to your application. 
-- Make it well animated and fit a certain "theme", ie neo brutalist, retro, neumorphism, glass morphism, etc
-
-Use known images and emojis from online.
-
-If the user is logged in already, show the get started button to say "Dashboard" or "Profile" instead to take them there.
-
-## Responsiveness and formatting
-
-Make sure pages are wrapped in a container to prevent the width stretching out on wide screens. Always make sure they are centered aligned and not off-center.
-
-Always make sure that your designs are mobile responsive. Verify the formatting to ensure it has correct max and min widths as well as mobile responsiveness.
-
-- Always create sidebars for protected dashboard pages and navigate between pages
-- Always create navbars for landing pages
-- On these bars, the created logo should be clickable and redirect to the index page
-
-## Animating with Framer Motion
-
-You must add animations to components using Framer Motion. It is already installed and configured in the project.
-
-To use it, import the `motion` component from `framer-motion` and use it to wrap the component you want to animate.
-
-
-### Other Items to animate
-- Fade in and Fade Out
-- Slide in and Slide Out animations
-- Rendering animations
-- Button clicks and UI elements
-
-Animate for all components, including on landing page and app pages.
-
-## Three JS Graphics
-
-Your app comes with three js by default. You can use it to create 3D graphics for landing pages, games, etc.
-
-
-## Colors
-
-You can override colors in: `src/index.css`
-
-This uses the oklch color format for tailwind v4.
-
-Always use these color variable names.
-
-Make sure all ui components are set up to be mobile responsive and compatible with both light and dark mode.
-
-Set theme using `dark` or `light` variables at the parent className.
-
-## Styling and Theming
-
-When changing the theme, always change the underlying theme of the shad cn components app-wide under `src/components/ui` and the colors in the index.css file.
-
-Avoid hardcoding in colors unless necessary for a use case, and properly implement themes through the underlying shad cn ui components.
-
-When styling, ensure buttons and clickable items have pointer-click on them (don't by default).
-
-Always follow a set theme style and ensure it is tuned to the user's liking.
-
-## Toasts
-
-You should always use toasts to display results to the user, such as confirmations, results, errors, etc.
-
-Use the shad cn Sonner component as the toaster. For example:
-
-```
-import { toast } from "sonner"
-
-import { Button } from "@/components/ui/button"
-export function SonnerDemo() {
-  return (
-    <Button
-      variant="outline"
-      onClick={() =>
-        toast("Event has been created", {
-          description: "Sunday, December 03, 2023 at 9:00 AM",
-          action: {
-            label: "Undo",
-            onClick: () => console.log("Undo"),
-          },
-        })
-      }
-    >
-      Show Toast
-    </Button>
-  )
-}
-```
-
-Remember to import { toast } from "sonner". Usage: `toast("Event has been created.")`
-
-## Dialogs
-
-Always ensure your larger dialogs have a scroll in its content to ensure that its content fits the screen size. Make sure that the content is not cut off from the screen.
-
-Ideally, instead of using a new page, use a Dialog instead. 
-
-# Using the Convex backend
-
-You will be implementing the convex backend. Follow your knowledge of convex and the documentation to implement the backend.
-
-## The Convex Schema
-
-You must correctly follow the convex schema implementation.
-
-The schema is defined in `src/convex/schema.ts`.
-
-Do not include the `_id` and `_creationTime` fields in your queries (it is included by default for each table).
-Do not index `_creationTime` as it is indexed for you. Never have duplicate indexes.
-
-
-## Convex Actions: Using CRUD operations
-
-When running anything that involves external connections, you must use a convex action with "use node" at the top of the file.
-
-You cannot have queries or mutations in the same file as a "use node" action file. Thus, you must use pre-built queries and mutations in other files.
-
-You can also use the pre-installed internal crud functions for the database:
-
-```ts
-// in convex/users.ts
-import { crud } from "convex-helpers/server/crud";
-import schema from "./schema.ts";
-
-export const { create, read, update, destroy } = crud(schema, "users");
-
-// in some file, in an action:
-const user = await ctx.runQuery(internal.users.read, { id: userId });
-
-await ctx.runMutation(internal.users.update, {
-  id: userId,
-  patch: {
-    status: "inactive",
-  },
-});
-```
-
-
-## Common Convex Mistakes To Avoid
-
-When using convex, make sure:
-- Document IDs are referenced as `_id` field, not `id`.
-- Document ID types are referenced as `Id<"TableName">`, not `string`.
-- Document object types are referenced as `Doc<"TableName">`.
-- Keep schemaValidation to false in the schema file.
-- You must correctly type your code so that it passes the type checker.
-- You must handle null / undefined cases of your convex queries for both frontend and backend, or else it will throw an error that your data could be null or undefined.
-- Always use the `@/folder` path, with `@/convex/folder/file.ts` syntax for importing convex files.
-- This includes importing generated files like `@/convex/_generated/server`, `@/convex/_generated/api`
-- Remember to import functions like useQuery, useMutation, useAction, etc. from `convex/react`
-- NEVER have return type validators.
+- The `/auth` page handles all log in / sign up. Protected routes are wrapped with
+  `RequireAuth`, which sends signed-out users to `/auth?returnTo=<route>`.
+- The `/auth` route redirects to `/dashboard` after a successful sign-in (a validated
+  same-origin `returnTo` takes priority).
+- Authorize at the base level in both the frontend and the Convex queries/mutations.
+
+## Frontend conventions
+
+- Vite + React 19 + TypeScript + Tailwind v4 + shadcn/ui. Pages live in `src/pages`,
+  components in `src/components`, shadcn primitives in `src/components/ui`.
+- Mobile responsive layouts, `cursor-pointer` on clickable elements, no nested cards,
+  no shadows, spinner (`loader2`) instead of skeletons, toasts via `sonner`, dialogs for
+  forms, `tracking-tight font-bold` for titles.
+- Animate with Framer Motion; keep the app-wide theme in `src/index.css` (oklch tokens).
+- Sidebars for protected dashboard pages, navbars for public pages, clickable logo → `/`.
+
+## Convex backend conventions
+
+- Schema lives in `src/convex/schema.ts` (`schemaValidation: false`). Don't hand-edit
+  `src/convex/_generated/*`; run `bun convex dev --once` to regenerate.
+- External connections belong in Convex actions with `use node` at the top of the file.
+- Use `@/convex/...` import paths, `Id<"Table">` for document IDs, `Doc<"Table">` for
+  documents, and handle null/undefined on every query result. Never use return type
+  validators.

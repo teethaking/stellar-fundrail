@@ -59,9 +59,9 @@ const SECTIONS = [
           points, and edits are locked while funds are pending.
         </p>
         <p className="mt-3">
-          <span className="font-medium">registry</span> stores only small metadata on-chain
-          (name, description, wallet, GitHub, website, metadata URI); anything large lives
-          off-chain behind the URI.
+          <span className="font-medium">registry</span> stores only small, bounded metadata
+          on-chain (name, description, recipient wallet, metadata URI); GitHub, website, and
+          other rich profile content live off-chain behind the URI.
         </p>
       </>
     ),
@@ -85,15 +85,15 @@ const SECTIONS = [
     sender: Address,
     recipient: Address,
     token: Address,
-    start_time: u64,
-    end_time: u64,
-    rate: i128,          // base units per second
-    total_amount: i128,  // rate * (end - start), escrowed up front
+    total_amount: i128,  // escrowed up front, in base units
+    start_time: u64,     // unix seconds
+    end_time: u64,       // unix seconds
 ) -> u32 {
     sender.require_auth();
-    // validate timestamps, addresses, amount; transfer token into escrow;
-    // store Stream { sender, recipient, token, start, end, rate,
-    //                total, withdrawn, paused_until, status }
+    // validate timestamps & amount; transfer total into escrow;
+    // rate = total_amount / (end_time - start_time), stored on-chain;
+    // persist Stream { sender, recipient, token, start, end, rate,
+    //                  total, withdrawn, paused_at, paused_seconds, status }
 }`}</Code>
         <p className="mt-3">
           Accrual is pure math:{" "}
@@ -128,11 +128,11 @@ const SECTIONS = [
 //   A (50%) -> 500, B (30%) -> 300, C (20%) -> 200  (each pending)
 // claim() moves a recipient's pending slice to their wallet.
 
-pub fn distribute(env: Env, split_id: u32, caller: Address) {
-    caller.require_auth();
-    // only the owner may distribute
-    // allocatable = total_deposited - distributed_amount
-    // for each share: pending += allocatable * bps / 10_000
+pub fn distribute(env: Env, split_id: u32) {
+    // anyone may call — it can only move funds toward recipients
+    // pending = deposited - distributed
+    // for each share: claimable += pending * bps / 10_000
+    // rounding remainder is assigned to the last recipient
 }`}</Code>
         <p className="mt-3">
           Shares are stored in basis points and must sum to exactly 10,000 — checked at
@@ -151,28 +151,60 @@ pub fn distribute(env: Env, split_id: u32, caller: Address) {
         <p>
           Public functions: <code className="font-mono text-xs">register_project</code>,{" "}
           <code className="font-mono text-xs">update_project</code>,{" "}
-          <code className="font-mono text-xs">get_project</code>,{" "}
-          <code className="font-mono text-xs">project_count</code>,{" "}
-          <code className="font-mono text-xs">list_projects</code>.
+          <code className="font-mono text-xs">set_project_active</code>,{" "}
+          <code className="font-mono text-xs">project_details</code>,{" "}
+          <code className="font-mono text-xs">my_projects</code>,{" "}
+          <code className="font-mono text-xs">list_projects</code>,{" "}
+          <code className="font-mono text-xs">support_project</code>,{" "}
+          <code className="font-mono text-xs">support_history</code>.
         </p>
         <Code>{`pub fn register_project(
     env: Env,
     creator: Address,
-    name: String,
-    description: String,
-    github: Option<String>,
-    website: Option<String>,
-    wallet: Address,
-    metadata_uri: Option<String>,
+    name: String,          // <= 64 bytes
+    description: String,   // <= 512 bytes
+    metadata_uri: String,  // <= 256 bytes — full profile lives here
+    recipient: Address,    // wallet that receives funding
 ) -> u32 {
     creator.require_auth();
-    // slugify(name) to keep the ID stable; persist Project struct;
-    // heavy content (readmes, assets) belongs behind metadata_uri
+    // persist Project; only bounded metadata is stored on-chain
 }`}</Code>
         <p className="mt-3">
-          The registry is a directory, not a treasury — funding flows to the project&apos;s
-          wallet address through the other contracts. Anyone can register; only the creator
-          can update metadata.
+          The registry is a directory, not a treasury:{" "}
+          <code className="font-mono text-xs">support_project</code> transfers tokens directly
+          from the supporter&apos;s wallet to the project&apos;s <code className="font-mono text-xs">recipient</code>{" "}
+          wallet and appends a {" "}
+          <code className="font-mono text-xs">SupportEntry</code> (supporter, token, amount,
+          timestamp) to the project&apos;s on-chain history, capped at 200 entries. Anyone can
+          register; only the creator can update metadata, archive the project, or change its
+          recipient — and archived projects can&apos;t receive support.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "token-vault",
+    icon: ScrollText,
+    title: "Token Vault contract",
+    body: (
+      <>
+        <p>
+          Public functions: <code className="font-mono text-xs">create_vault</code>,{" "}
+          <code className="font-mono text-xs">deposit</code>,{" "}
+          <code className="font-mono text-xs">withdraw</code>,{" "}
+          <code className="font-mono text-xs">transfer_ownership</code>,{" "}
+          <code className="font-mono text-xs">vault_details</code>,{" "}
+          <code className="font-mono text-xs">vault_balance</code>.
+        </p>
+        <Code>{`pub fn create_vault(env: Env, owner: Address, token: Address) -> u32;
+pub fn deposit(env: Env, vault_id: u32, depositor: Address, amount: i128);
+pub fn withdraw(env: Env, vault_id: u32, owner: Address, to: Address, amount: i128);
+pub fn transfer_ownership(env: Env, vault_id: u32, owner: Address, new_owner: Address);`}</Code>
+        <p className="mt-3">
+          A vault is a per-(owner, token) custody box — the escrow primitive underneath the
+          other contracts. Anyone can deposit into any vault; only the owner can withdraw, and
+          never more than the recorded balance. The balance is decremented{" "}
+          <em>before</em> the token transfer, so the same units can never be withdrawn twice.
         </p>
       </>
     ),
@@ -184,9 +216,9 @@ pub fn distribute(env: Env, split_id: u32, caller: Address) {
     body: (
       <>
         <p>Requires the Soroban CLI and a funded testnet account:</p>
-        <Code>{`# build + test
-cargo build --workspace
+        <Code>{`# build + test (host tests + deployable wasm)
 cargo test --workspace
+cargo build --workspace --release --target wasm32-unknown-unknown
 
 # install a testnet account
 soroban keys generate alice --network testnet
@@ -202,7 +234,7 @@ soroban contract invoke --id <CONTRACT_ID> --source alice \\
   --network testnet \\
   -- create_stream --sender <ALICE> --recipient <BOB> \\
   --token <SAC_ID> --start_time 1720000000 --end_time 1750000000 \\
-  --rate 1000000 --total_amount 30000000000`}</Code>
+  --total_amount 30000000000`}</Code>
       </>
     ),
   },
@@ -214,26 +246,41 @@ soroban contract invoke --id <CONTRACT_ID> --source alice \\
       <>
         <p>
           Every contract ships with unit and integration tests using{" "}
-          <code className="font-mono text-xs">soroban_sdk::testutils</code>. The test suite
-          covers the failure modes that matter for money-moving contracts:
+          <code className="font-mono text-xs">soroban_sdk::testutils</code> —{" "}
+          <code className="font-mono text-xs">cargo test --workspace</code> runs all of them.
+          The suite covers the failure modes that matter for money-moving contracts:
         </p>
         <Code>{`// funding_stream::test
-#[test] fn withdraw_before_start_fails() { ... }
-#[test] fn only_recipient_can_withdraw() { ... }
 #[test] fn no_double_withdrawal() { ... }
+#[test] fn over_withdrawal_rejected() { ... }
 #[test] fn pause_freezes_accrual() { ... }
 #[test] fn cancel_refunds_unearned() { ... }
 
 // splitter::test
 #[test] fn shares_must_sum_to_10000() { ... }
 #[test] fn distribution_is_proportional() { ... }
-#[test] fn only_owner_distributes() { ... }
-#[test] fn edit_locked_while_pending() { ... }`}</Code>
+#[test] fn remove_recipient_renormalizes_shares() { ... }
+
+// registry::test
+#[test] fn support_transfers_and_records() { ... }
+#[test] fn support_archived_project_rejected() { ... }
+#[test] fn history_capped_at_200() { ... }
+
+// token_vault::test
+#[test] fn withdraw_over_balance_rejected() { ... }
+#[test] fn transfer_ownership_moves_control() { ... }`}</Code>
         <p className="mt-3">
           All integer arithmetic uses <code className="font-mono text-xs">i128</code> with
-          explicit checked operations — Soroban panics on overflow rather than wrapping. See{" "}
-          <code className="font-mono text-xs">SECURITY.md</code> in the contracts workspace for
-          the threat model and invariants.
+          explicit checked operations — Soroban panics on overflow rather than wrapping.
+        </p>
+        <p className="mt-3">
+          The frontend ships its own tests for the shared stream math and Stellar formatting
+          helpers (<code className="font-mono text-xs">bun vitest run</code>), and GitHub
+          Actions runs the whole thing on every push: Rust tests + wasm build in one job,
+          typecheck + Vitest in another. Docker images (root <code className="font-mono text-xs">Dockerfile</code>{" "}
+          and <code className="font-mono text-xs">contracts/Dockerfile</code>) give every
+          contributor the same reproducible environment via{" "}
+          <code className="font-mono text-xs">docker compose up</code>.
         </p>
       </>
     ),
@@ -279,6 +326,8 @@ export default function Docs() {
             <Badge variant="secondary" className="font-mono text-[10px]">soroban-cli</Badge>
             <Badge variant="secondary" className="font-mono text-[10px]">cargo test</Badge>
             <Badge variant="secondary" className="font-mono text-[10px]">GitHub Actions</Badge>
+            <Badge variant="secondary" className="font-mono text-[10px]">Docker</Badge>
+            <Badge variant="secondary" className="font-mono text-[10px]">Vitest</Badge>
           </div>
 
           {SECTIONS.map((s) => (
