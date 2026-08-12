@@ -173,8 +173,9 @@ export const resumeStream = mutation({
   },
 });
 
-/** Cancel a stream. Only the sender may cancel; accrued-but-unwithdrawn funds
- *  are lost, exactly like the on-chain contract. */
+/** Cancel a stream. Only the sender may cancel; the accrued-but-unwithdrawn
+ *  balance stays frozen and remains claimable by the recipient (mirrors the
+ *  on-chain contract, where the unearned portion is refunded to the sender). */
 export const cancelStream = mutation({
   args: { id: v.id("streams"), walletAddress: v.string() },
   handler: async (ctx, args) => {
@@ -203,7 +204,8 @@ export const cancelStream = mutation({
 });
 
 /** Withdraw accrued funds. Only the recipient may withdraw, and never more
- *  than the claimable balance (no double withdrawals). */
+ *  than the claimable balance (no double withdrawals). After a cancel, the
+ *  frozen claimable balance can still be withdrawn. */
 export const withdrawStream = mutation({
   args: { id: v.id("streams"), walletAddress: v.string(), txHash: v.optional(v.string()) },
   handler: async (ctx, args) => {
@@ -212,7 +214,6 @@ export const withdrawStream = mutation({
     if (stream.recipientWallet !== args.walletAddress) {
       throw new Error("Only the recipient can withdraw");
     }
-    if (stream.status === "cancelled") throw new Error("Stream was cancelled");
 
     const now = Date.now();
     const claimable = claimableAmount(stream, now);

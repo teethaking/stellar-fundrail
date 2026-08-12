@@ -33,3 +33,15 @@ export const recent = query({
     return await ctx.db.query("activities").order("desc").take(args.limit ?? 20);
   },
 });
+
+/** Funding history for a single project (donations + streams + splits). */
+export const byProject = query({
+  args: { projectId: v.id("projects"), limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const activities = await ctx.db
+      .query("activities")
+      .order("desc")
+      .take(args.limit ?? 200);
+    return activities.filter((a) => a.projectId === args.projectId);
+  },
+});

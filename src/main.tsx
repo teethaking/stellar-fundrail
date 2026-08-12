@@ -13,6 +13,13 @@ import "./index.css";
 const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
+const Explore = lazy(() => import("./pages/Explore.tsx"));
+const ProjectDetail = lazy(() => import("./pages/ProjectDetail.tsx"));
+const Streams = lazy(() => import("./pages/Streams.tsx"));
+const Splitter = lazy(() => import("./pages/Splitter.tsx"));
+const Activity = lazy(() => import("./pages/Activity.tsx"));
+const Docs = lazy(() => import("./pages/Docs.tsx"));
+const About = lazy(() => import("./pages/About.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 // Simple loading fallback for route transitions
@@ -124,6 +131,8 @@ createRoot(document.getElementById("root")!).render(
                 path="/auth"
                 element={<AuthPage redirectAfterAuth="/dashboard" />}
               />
+              <Route path="/explore" element={<Explore />} />
+              <Route path="/project/:slug" element={<ProjectDetail />} />
               <Route
                 path="/dashboard"
                 element={
@@ -132,6 +141,11 @@ createRoot(document.getElementById("root")!).render(
                   </RequireAuth>
                 }
               />
+              <Route path="/streams" element={<Streams />} />
+              <Route path="/splitter" element={<Splitter />} />
+              <Route path="/activity" element={<Activity />} />
+              <Route path="/docs" element={<Docs />} />
+              <Route path="/about" element={<About />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

@@ -2,7 +2,9 @@ import { Link } from "react-router";
 import { LogoMark } from "@/components/site/Logo";
 import { STELLAR_NETWORK } from "@/lib/stellar";
 
-const PRODUCT = [
+type FooterLink = { label: string; to?: string; href?: string };
+
+const PRODUCT: { to: string; label: string }[] = [
   { to: "/explore", label: "Explore projects" },
   { to: "/dashboard", label: "Dashboard" },
   { to: "/streams", label: "Funding streams" },
@@ -10,7 +12,7 @@ const PRODUCT = [
   { to: "/activity", label: "Activity" },
 ];
 
-const RESOURCES = [
+const RESOURCES: FooterLink[] = [
   { to: "/docs", label: "Developer docs" },
   { to: "/about", label: "About" },
   { href: "https://developers.stellar.org", label: "Stellar developers" },
@@ -60,7 +62,7 @@ export function Footer() {
             <h3 className="text-sm font-semibold">Resources</h3>
             <ul className="mt-4 space-y-2.5">
               {RESOURCES.map((l) =>
-                "to" in l ? (
+                l.to ? (
                   <li key={l.label}>
                     <Link
                       to={l.to}
