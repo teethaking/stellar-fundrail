@@ -10,6 +10,16 @@ import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { formatUnits } from "@/lib/stellar";
 import { Loader2, Plus, Split } from "lucide-react";
+import { motion } from "framer-motion";
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } },
+};
+const fadeSlideUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } },
+};
 
 export default function Splitter() {
   const { wallet } = useWallet();
@@ -55,24 +65,24 @@ export default function Splitter() {
         />
       ) : (
         <>
-          <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border border-border/70 bg-card/50 p-5">
+          <motion.div variants={stagger} initial="hidden" animate="show" className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <motion.div variants={fadeSlideUp} className="rounded-xl border border-border/70 bg-card/50 p-5">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Splits</p>
               <p className="mt-1 font-mono text-2xl font-semibold">{summary.count}</p>
-            </div>
-            <div className="rounded-xl border border-border/70 bg-card/50 p-5">
+            </motion.div>
+            <motion.div variants={fadeSlideUp} className="rounded-xl border border-border/70 bg-card/50 p-5">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Deposited</p>
               <p className="mt-1 font-mono text-2xl font-semibold text-cyan-200">{formatUnits(summary.deposited)}</p>
-            </div>
-            <div className="rounded-xl border border-border/70 bg-card/50 p-5">
+            </motion.div>
+            <motion.div variants={fadeSlideUp} className="rounded-xl border border-border/70 bg-card/50 p-5">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Pending</p>
               <p className="mt-1 font-mono text-2xl font-semibold text-amber-200">{formatUnits(summary.pending)}</p>
-            </div>
-            <div className="rounded-xl border border-border/70 bg-card/50 p-5">
+            </motion.div>
+            <motion.div variants={fadeSlideUp} className="rounded-xl border border-border/70 bg-card/50 p-5">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Claimable by you</p>
               <p className="mt-1 font-mono text-2xl font-semibold text-emerald-300">{formatUnits(summary.myPending)}</p>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
           {!splits ? (
             <div className="flex items-center justify-center gap-2 py-24 text-sm text-muted-foreground">
@@ -97,11 +107,13 @@ export default function Splitter() {
               </EmptyContent>
             </Empty>
           ) : (
-            <div className="grid gap-5 xl:grid-cols-2">
+            <motion.div variants={stagger} initial="hidden" animate="show" className="grid gap-5 xl:grid-cols-2">
               {(splits as SplitDoc[]).map((s) => (
-                <SplitCard key={s._id} split={s} wallet={wallet.address} />
+                <motion.div key={s._id} variants={fadeSlideUp}>
+                  <SplitCard split={s} wallet={wallet.address} />
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
         </>
       )}

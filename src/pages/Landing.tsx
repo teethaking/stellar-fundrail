@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { accruedAmount } from "@/lib/stream-math";
 import { formatUnits, shortAddress } from "@/lib/stellar";
+import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -93,6 +94,25 @@ const SPLIT_DEMO = [
 ];
 
 const TICKER_ITEMS = ["USDC", "XLM", "SOROBAN", "TESTNET", "RUST", "PUBLIC GOODS", "FREIGHTER", "DRIPS"];
+
+function Ticker() {
+  const reduced = usePrefersReducedMotion();
+  return (
+    <section className="border-y border-border/50 bg-white/[0.02] py-4 overflow-hidden">
+      <motion.div
+        animate={reduced ? {} : { x: [0, -200] }}
+        transition={reduced ? {} : { repeat: Infinity, duration: 20, ease: "linear" }}
+        className="flex items-center gap-16 whitespace-nowrap"
+      >
+        {[...TICKER_ITEMS, ...TICKER_ITEMS].map((item, i) => (
+          <span key={`${item}-${i}`} className="font-mono text-xs tracking-[0.25em] text-muted-foreground/70">
+            {item}
+          </span>
+        ))}
+      </motion.div>
+    </section>
+  );
+}
 
 function LiveStreamDemo() {
   const [now, setNow] = useState(() => Date.now());
@@ -196,8 +216,8 @@ export default function Landing() {
       {/* ============ HERO ============ */}
       <section className="relative overflow-hidden">
         <div className="bg-grid absolute inset-0" />
-        <div className="pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-cyan-500/10 blur-[120px]" />
-        <div className="pointer-events-none absolute -right-32 top-40 h-[360px] w-[360px] rounded-full bg-amber-400/8 blur-[100px]" />
+        <div className="pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-cyan-500/10 blur-[120px] ambient-glow" />
+        <div className="pointer-events-none absolute -right-32 top-40 h-[360px] w-[360px] rounded-full bg-amber-400/8 blur-[100px] ambient-glow" style={{ animationDelay: "4s" }} />
 
         <div className="relative mx-auto w-full max-w-7xl px-4 pb-20 pt-16 sm:px-6 sm:pt-24 lg:pb-28">
           <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr]">
@@ -283,15 +303,7 @@ export default function Landing() {
       </section>
 
       {/* ============ TICKER ============ */}
-      <section className="border-y border-border/50 bg-white/[0.02] py-4">
-        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 overflow-hidden">
-          {TICKER_ITEMS.map((item) => (
-            <span key={item} className="font-mono text-xs tracking-[0.25em] text-muted-foreground/70">
-              {item}
-            </span>
-          ))}
-        </div>
-      </section>
+      <Ticker />
 
       {/* ============ HOW IT WORKS ============ */}
       <section className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
@@ -475,7 +487,7 @@ export default function Landing() {
       {/* ============ FINAL CTA ============ */}
       <section className="relative overflow-hidden border-t border-border/50">
         <div className="bg-grid absolute inset-0" />
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[400px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-500/10 blur-[110px]" />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[400px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-500/10 blur-[110px] ambient-glow" />
         <div className="relative mx-auto w-full max-w-3xl px-4 py-24 text-center sm:px-6">
           <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
             Start funding the software you depend on.

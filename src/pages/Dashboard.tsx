@@ -7,6 +7,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useEnsureSeed } from "@/hooks/use-ensure-seed";
 import { useWallet } from "@/hooks/use-wallet";
 import { useNow } from "@/hooks/use-now";
+import { useAnimatedNumber } from "@/hooks/use-animated-number";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { LogoMark } from "@/components/site/Logo";
 import { WalletButton } from "@/components/site/WalletButton";
 import { StreamCard, type StreamLive } from "@/components/streams/StreamCard";
@@ -33,6 +35,7 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 type ActivityDoc = Doc<"activities">;
@@ -45,16 +48,28 @@ const NAV = [
   { to: "/explore", label: "Explore", icon: Compass },
 ];
 
+/* ── Stagger container variants ── */
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } },
+};
+const fadeSlideUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } },
+};
+
 export default function Dashboard() {
   useEnsureSeed();
   const { user, signOut } = useAuth();
   const { wallet } = useWallet();
   const navigate = useNavigate();
   const now = useNow();
+  const isMobile = useIsMobile();
 
   const [streamOpen, setStreamOpen] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const streams = useQuery(
     api.streams.list,
@@ -157,7 +172,7 @@ export default function Dashboard() {
       </aside>
 
       {/* ===== main ===== */}
-      <div className="flex min-w-0 flex-1 flex-col lg:pl-60">
+      <div className="flex min-w-0 flex-1 flex-col pb-20 lg:pl-60 lg:pb-0">
         {/* mobile top bar */}
         <header className="sticky top-0 z-30 border-b border-border/60 bg-[#05070D]/90 backdrop-blur-xl lg:hidden">
           <div className="flex h-14 items-center justify-between px-4">
@@ -197,7 +212,12 @@ export default function Dashboard() {
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
           {/* header */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
+          >
             <div>
               <p className="font-mono text-xs uppercase tracking-[0.2em] text-cyan-300/80">Dashboard</p>
               <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
@@ -214,53 +234,77 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" className="gap-2" onClick={() => setStreamOpen(true)}>
-                <Plus className="size-4" /> Stream
-              </Button>
-              <Button variant="outline" className="gap-2" onClick={() => setSplitOpen(true)}>
-                <Plus className="size-4" /> Split
-              </Button>
-              <Button className="gap-2 bg-cyan-400 font-medium text-[#04141B] hover:bg-cyan-300" onClick={() => setRegisterOpen(true)}>
-                <Plus className="size-4" /> Register project
-              </Button>
+              <motion.div whileTap={{ scale: 0.95 }}>
+                <Button variant="outline" className="gap-2" onClick={() => setStreamOpen(true)}>
+                  <Plus className="size-4" /> Stream
+                </Button>
+              </motion.div>
+              <motion.div whileTap={{ scale: 0.95 }}>
+                <Button variant="outline" className="gap-2" onClick={() => setSplitOpen(true)}>
+                  <Plus className="size-4" /> Split
+                </Button>
+              </motion.div>
+              <motion.div whileTap={{ scale: 0.95 }}>
+                <Button className="gap-2 bg-cyan-400 font-medium text-[#04141B] hover:bg-cyan-300" onClick={() => setRegisterOpen(true)}>
+                  <Plus className="size-4" /> Register project
+                </Button>
+              </motion.div>
             </div>
-          </div>
+          </motion.div>
 
-          {/* stats */}
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              label="Total sent"
-              value={formatUnits(stats.sent)}
-              hint="across streams, splits & donations"
-              icon={TrendingUp}
-              tone="rose"
-            />
-            <StatCard
-              label="Total received"
-              value={formatUnits(stats.received)}
-              hint="withdrawals & claims"
-              icon={TrendingDown}
-              tone="emerald"
-            />
-            <StatCard
-              label="Active streams"
-              value={String(stats.activeStreams)}
-              hint="accruing right now"
-              icon={Radio}
-              tone="cyan"
-            />
-            <StatCard
-              label="Claimable now"
-              value={formatUnits(stats.claimable)}
-              hint={`+ ${formatUnits(stats.pendingSplits)} pending in splits`}
-              icon={Wallet}
-              tone="amber"
-            />
-          </div>
+          {/* stats — animated counters */}
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            animate="show"
+            className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+          >
+            <motion.div variants={fadeSlideUp}>
+              <AnimatedStatCard
+                label="Total sent"
+                rawValue={stats.sent}
+                hint="across streams, splits & donations"
+                icon={TrendingUp}
+                tone="rose"
+              />
+            </motion.div>
+            <motion.div variants={fadeSlideUp}>
+              <AnimatedStatCard
+                label="Total received"
+                rawValue={stats.received}
+                hint="withdrawals & claims"
+                icon={TrendingDown}
+                tone="emerald"
+              />
+            </motion.div>
+            <motion.div variants={fadeSlideUp}>
+              <StatCard
+                label="Active streams"
+                value={String(stats.activeStreams)}
+                hint="accruing right now"
+                icon={Radio}
+                tone="cyan"
+              />
+            </motion.div>
+            <motion.div variants={fadeSlideUp}>
+              <AnimatedStatCard
+                label="Claimable now"
+                rawValue={stats.claimable}
+                hint={`+ ${formatUnits(stats.pendingSplits)} pending in splits`}
+                icon={Wallet}
+                tone="amber"
+              />
+            </motion.div>
+          </motion.div>
 
           {/* quick actions for unconnected wallet */}
           {!wallet && (
-            <div className="mt-8 rounded-xl border border-dashed border-cyan-400/30 bg-cyan-400/[0.03] p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="mt-8 rounded-xl border border-dashed border-cyan-400/30 bg-cyan-400/[0.03] p-6"
+            >
               <p className="text-sm font-medium">Your dashboard is wallet-powered</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 Streams, splits, and activity are keyed to your Stellar address. Connect
@@ -269,10 +313,10 @@ export default function Dashboard() {
               <div className="mt-4">
                 <WalletButton />
               </div>
-            </div>
+            </motion.div>
           )}
 
-          {/* active streams */}
+          {/* active streams — staggered */}
           <div className="mt-10">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Active streams</h2>
@@ -302,15 +346,17 @@ export default function Dashboard() {
                 </EmptyContent>
               </Empty>
             ) : (
-              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              <motion.div variants={stagger} initial="hidden" animate="show" className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                 {myStreams.map((s) => (
-                  <StreamCard key={s._id} stream={s} wallet={wallet?.address ?? null} />
+                  <motion.div key={s._id} variants={fadeSlideUp}>
+                    <StreamCard key={s._id} stream={s} wallet={wallet?.address ?? null} />
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             )}
           </div>
 
-          {/* recent activity */}
+          {/* recent activity — animated feed */}
           <div className="mt-10">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Recent activity</h2>
@@ -334,34 +380,46 @@ export default function Dashboard() {
               </Empty>
             ) : (
               <div className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/70 bg-card/40">
-                {(activities as ActivityDoc[]).slice(0, 6).map((a) => (
-                  <div key={a._id} className="flex items-center gap-3 px-4 py-3">
-                    <span
+                <AnimatePresence initial={false}>
+                  {(activities as ActivityDoc[]).slice(0, 6).map((a, i) => (
+                    <motion.div
+                      key={a._id}
+                      initial={{ opacity: 0, x: -16, height: 0 }}
+                      animate={{ opacity: 1, x: 0, height: "auto" }}
+                      exit={{ opacity: 0, x: 16 }}
+                      transition={{ duration: 0.3, delay: i * 0.03 }}
                       className={cn(
-                        "flex size-8 shrink-0 items-center justify-center rounded-md",
-                        a.direction === "in" ? "bg-emerald-400/10 text-emerald-300" : "bg-rose-400/10 text-rose-300",
+                        "flex items-center gap-3 px-4 py-3",
+                        i === 0 && "highlight-new",
                       )}
                     >
-                      {a.direction === "in" ? <TrendingDown className="size-3.5" /> : <TrendingUp className="size-3.5" />}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm">{a.note ?? a.type.replace(/_/g, " ")}</p>
-                      <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                        {timeAgo(a.createdAt)} {a.counterparty && `· ${shortAddress(a.counterparty, 5)}`}
-                      </p>
-                    </div>
-                    {a.amount != null && (
-                      <p className={cn("shrink-0 font-mono text-sm font-semibold", a.direction === "in" ? "text-emerald-300" : "text-rose-300")}>
-                        {a.direction === "in" ? "+" : "−"}{formatUnits(a.amount)} {a.token}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                      <span
+                        className={cn(
+                          "flex size-8 shrink-0 items-center justify-center rounded-md",
+                          a.direction === "in" ? "bg-emerald-400/10 text-emerald-300" : "bg-rose-400/10 text-rose-300",
+                        )}
+                      >
+                        {a.direction === "in" ? <TrendingDown className="size-3.5" /> : <TrendingUp className="size-3.5" />}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm">{a.note ?? a.type.replace(/_/g, " ")}</p>
+                        <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                          {timeAgo(a.createdAt)} {a.counterparty && `· ${shortAddress(a.counterparty, 5)}`}
+                        </p>
+                      </div>
+                      {a.amount != null && (
+                        <p className={cn("shrink-0 font-mono text-sm font-semibold", a.direction === "in" ? "text-emerald-300" : "text-rose-300")}>
+                          {a.direction === "in" ? "+" : "−"}{formatUnits(a.amount)} {a.token}
+                        </p>
+                      )}
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
             )}
           </div>
 
-          {/* splits summary */}
+          {/* splits summary — staggered */}
           {wallet && (splits ?? []).length > 0 && (
             <div className="mt-10">
               <div className="mb-4 flex items-center justify-between">
@@ -370,28 +428,52 @@ export default function Dashboard() {
                   Manage splits →
                 </Link>
               </div>
-              <div className="grid gap-4 sm:grid-cols-3">
+              <motion.div variants={stagger} initial="hidden" animate="show" className="grid gap-4 sm:grid-cols-3">
                 {(splits ?? []).slice(0, 3).map((s) => (
-                  <Link
-                    key={s._id}
-                    to="/splitter"
-                    className="group rounded-xl border border-border/70 bg-card/40 p-5 transition-colors hover:border-cyan-400/25"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="truncate font-mono text-sm font-semibold">{s.title}</p>
-                      <Badge variant="secondary" className="font-mono text-[10px]">
-                        {s.token}
-                      </Badge>
-                    </div>
-                    <p className="mt-3 font-mono text-lg font-semibold text-cyan-200">{formatUnitsCompact(s.totalDeposited)}</p>
-                    <p className="text-[11px] text-muted-foreground">deposited · {s.shares.length} recipients</p>
-                  </Link>
+                  <motion.div key={s._id} variants={fadeSlideUp}>
+                    <Link
+                      to="/splitter"
+                      className="group block rounded-xl border border-border/70 bg-card/40 p-5 transition-colors hover:border-cyan-400/25"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="truncate font-mono text-sm font-semibold">{s.title}</p>
+                        <Badge variant="secondary" className="font-mono text-[10px]">
+                          {s.token}
+                        </Badge>
+                      </div>
+                      <p className="mt-3 font-mono text-lg font-semibold text-cyan-200">{formatUnitsCompact(s.totalDeposited)}</p>
+                      <p className="text-[11px] text-muted-foreground">deposited · {s.shares.length} recipients</p>
+                    </Link>
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             </div>
           )}
         </main>
       </div>
+
+      {/* ===== Mobile bottom nav ===== */}
+      {isMobile && (
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-[#04060B]/95 backdrop-blur-xl lg:hidden">
+          <div className="flex items-center justify-around px-2 py-2">
+            {NAV.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  cn(
+                    "flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors",
+                    isActive ? "text-cyan-300" : "text-muted-foreground",
+                  )
+                }
+              >
+                <item.icon className="size-5" />
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
+        </nav>
+      )}
 
       <CreateStreamDialog open={streamOpen} onOpenChange={setStreamOpen} />
       <CreateSplitDialog open={splitOpen} onOpenChange={setSplitOpen} />
@@ -400,6 +482,36 @@ export default function Dashboard() {
   );
 }
 
+/* ── Animated stat card (uses useAnimatedNumber for smooth roll) ── */
+function AnimatedStatCard({
+  label,
+  rawValue,
+  hint,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  rawValue: number;
+  hint: string;
+  icon: typeof Wallet;
+  tone: "cyan" | "emerald" | "amber" | "rose";
+}) {
+  const display = useAnimatedNumber(rawValue, 800);
+  return (
+    <div className="rounded-xl border border-border/70 bg-card/50 p-5">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+        <span className={cn("flex size-7 items-center justify-center rounded-md", TONE_CLASSES[tone])}>
+          <Icon className="size-3.5" />
+        </span>
+      </div>
+      <p className="mt-2 font-mono text-xl font-semibold sm:text-2xl">{formatUnits(Math.round(display))}</p>
+      <p className="mt-1 truncate text-[11px] text-muted-foreground">{hint}</p>
+    </div>
+  );
+}
+
+/* ── Static stat card (for counters that don't need animation) ── */
 function StatCard({
   label,
   value,
@@ -413,17 +525,11 @@ function StatCard({
   icon: typeof Wallet;
   tone: "cyan" | "emerald" | "amber" | "rose";
 }) {
-  const tones: Record<string, string> = {
-    cyan: "bg-cyan-400/10 text-cyan-300",
-    emerald: "bg-emerald-400/10 text-emerald-300",
-    amber: "bg-amber-400/10 text-amber-300",
-    rose: "bg-rose-400/10 text-rose-300",
-  };
   return (
     <div className="rounded-xl border border-border/70 bg-card/50 p-5">
       <div className="flex items-center justify-between">
         <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-        <span className={cn("flex size-7 items-center justify-center rounded-md", tones[tone])}>
+        <span className={cn("flex size-7 items-center justify-center rounded-md", TONE_CLASSES[tone])}>
           <Icon className="size-3.5" />
         </span>
       </div>
@@ -432,3 +538,10 @@ function StatCard({
     </div>
   );
 }
+
+const TONE_CLASSES: Record<string, string> = {
+  cyan: "bg-cyan-400/10 text-cyan-300",
+  emerald: "bg-emerald-400/10 text-emerald-300",
+  amber: "bg-amber-400/10 text-amber-300",
+  rose: "bg-rose-400/10 text-rose-300",
+};

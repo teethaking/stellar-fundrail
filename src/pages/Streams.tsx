@@ -10,6 +10,7 @@ import { StreamCard, type StreamLive } from "@/components/streams/StreamCard";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Loader2, Plus, Radio } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const FILTERS = [
   { key: "all", label: "All" },
@@ -18,6 +19,15 @@ const FILTERS = [
   { key: "completed", label: "Completed" },
   { key: "cancelled", label: "Cancelled" },
 ] as const;
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } },
+};
+const fadeSlideUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } },
+};
 
 export default function Streams() {
   const { wallet } = useWallet();
@@ -60,19 +70,28 @@ export default function Streams() {
         />
       ) : (
         <>
+          {/* Animated filter tabs */}
           <div className="mb-6 flex flex-wrap gap-2">
             {FILTERS.map((f) => (
-              <button
+              <motion.button
                 key={f.key}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => setFilter(f.key)}
-                className={`cursor-pointer rounded-md border px-3 py-1.5 font-mono text-xs transition-colors ${
+                className={`relative cursor-pointer rounded-md border px-3 py-1.5 font-mono text-xs transition-colors ${
                   filter === f.key
                     ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-200"
                     : "border-border/70 text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {f.label}
-              </button>
+                {filter === f.key && (
+                  <motion.div
+                    layoutId="stream-filter-indicator"
+                    className="absolute inset-0 rounded-md border border-cyan-400/30 bg-cyan-400/5"
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                )}
+              </motion.button>
             ))}
           </div>
 
@@ -99,11 +118,21 @@ export default function Streams() {
               </EmptyContent>
             </Empty>
           ) : (
-            <div className="grid gap-5 md:grid-cols-2">
-              {filtered.map((s) => (
-                <StreamCard key={s._id} stream={s} wallet={wallet.address} />
-              ))}
-            </div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={filter}
+                variants={stagger}
+                initial="hidden"
+                animate="show"
+                className="grid gap-5 md:grid-cols-2"
+              >
+                {filtered.map((s) => (
+                  <motion.div key={s._id} variants={fadeSlideUp}>
+                    <StreamCard stream={s} wallet={wallet.address} />
+                  </motion.div>
+                ))}
+              </motion.div>
+            </AnimatePresence>
           )}
         </>
       )}

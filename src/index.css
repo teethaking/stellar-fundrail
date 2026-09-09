@@ -166,3 +166,56 @@
   stroke-dasharray: 7 7;
   animation: rail-dash 1.4s linear infinite;
 }
+
+/* ---- Micro-interaction utilities ---- */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px -8px oklch(0.83 0.13 205 / 12%);
+}
+.card-hover:active {
+  transform: translateY(0px) scale(0.99);
+}
+
+/* Animated focus ring */
+.focus-ring-animate {
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.focus-ring-animate:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px oklch(0.83 0.13 205 / 50%);
+}
+
+/* Pulse highlight for new activity entries */
+@keyframes highlight-flash {
+  0% { background-color: oklch(0.83 0.13 205 / 15%); }
+  100% { background-color: transparent; }
+}
+.highlight-new {
+  animation: highlight-flash 2s ease-out forwards;
+}
+
+/* Smooth progress bar fill */
+@keyframes progress-fill {
+  from { width: 0; }
+}
+
+/* Ambient floating gradient for landing hero */
+@keyframes ambient-drift {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.08; }
+  50% { transform: translate(-48%, -52%) scale(1.08); opacity: 0.12; }
+}
+.ambient-glow {
+  animation: ambient-drift 12s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-hover:hover { transform: none; box-shadow: none; }
+  .card-hover:active { transform: none; }
+  .ambient-glow { animation: none; }
+  .highlight-new { animation: none; }
+  .rail-dash { animation: none; }
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

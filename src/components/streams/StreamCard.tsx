@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useNow } from "@/hooks/use-now";
+import { useAnimatedNumber } from "@/hooks/use-animated-number";
 import {
   accruedAmount,
   claimableAmount,
@@ -14,6 +15,7 @@ import { formatDuration, formatUnits, shortAddress, simulateTxHash } from "@/lib
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pause, Play, Square, Wallet } from "lucide-react";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
 
 export interface StreamLive {
@@ -50,10 +52,14 @@ export function StreamCard({ stream, wallet }: { stream: StreamLive; wallet: str
   const cancel = useMutation(api.streams.cancelStream);
   const withdraw = useMutation(api.streams.withdrawStream);
 
-  const accrued = accruedAmount(stream, now);
-  const claimable = claimableAmount(stream, now);
+  const rawAccrued = accruedAmount(stream, now);
+  const rawClaimable = claimableAmount(stream, now);
   const progress = streamProgress(stream, now);
   const remaining = msRemaining(stream, now);
+
+  // Smoothly animate numeric values
+  const displayAccrued = useAnimatedNumber(rawAccrued, 800);
+  const displayClaimable = useAnimatedNumber(rawClaimable, 800);
 
   const isSender = wallet != null && wallet === stream.senderWallet;
   const isRecipient = wallet != null && wallet === stream.recipientWallet;
@@ -87,7 +93,12 @@ export function StreamCard({ stream, wallet }: { stream: StreamLive; wallet: str
   const showActions = isSender || isRecipient;
 
   return (
-    <div className="rounded-xl border border-border/70 bg-card/60 p-5">
+    <motion.div
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.995 }}
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      className="rounded-xl border border-border/70 bg-card/60 p-5"
+    >
       {/* header */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -125,7 +136,11 @@ export function StreamCard({ stream, wallet }: { stream: StreamLive; wallet: str
         </div>
         <div className="flex flex-1 items-center gap-1 px-1">
           <span className="h-px flex-1 bg-border" />
-          <span className={`size-1.5 rounded-full ${stream.status === "active" ? "bg-cyan-300" : "bg-border"}`} />
+          <motion.span
+            animate={stream.status === "active" ? { scale: [1, 1.3, 1] } : {}}
+            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+            className={`size-1.5 rounded-full ${stream.status === "active" ? "bg-cyan-300" : "bg-border"}`}
+          />
           <span className="h-px flex-1 bg-border" />
         </div>
         <div className="min-w-0 flex-1 text-right">
@@ -134,12 +149,12 @@ export function StreamCard({ stream, wallet }: { stream: StreamLive; wallet: str
         </div>
       </div>
 
-      {/* amounts */}
+      {/* amounts — animated */}
       <div className="mt-5 grid grid-cols-2 gap-3">
         <div className="rounded-lg border border-border/60 bg-white/[0.03] p-3">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Accrued</p>
           <p className="mt-1 font-mono text-lg font-semibold text-cyan-200">
-            {formatUnits(accrued)}
+            {formatUnits(Math.round(displayAccrued))}
           </p>
           <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
             of {formatUnits(stream.totalAmount)} {stream.token}
@@ -149,20 +164,20 @@ export function StreamCard({ stream, wallet }: { stream: StreamLive; wallet: str
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
             {isRecipient ? "Claimable now" : "Withdrawn"}
           </p>
-          <p className={`mt-1 font-mono text-lg font-semibold ${claimable > 0 ? "text-emerald-300" : ""}`}>
-            {formatUnits(isRecipient ? claimable : stream.withdrawnAmount)}
+          <p className={`mt-1 font-mono text-lg font-semibold ${displayClaimable > 0 ? "text-emerald-300" : ""}`}>
+            {formatUnits(Math.round(displayClaimable))}
           </p>
           <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-            {isRecipient && claimable > 0 ? "ready to withdraw" : stream.token}
+            {isRecipient && displayClaimable > 0 ? "ready to withdraw" : stream.token}
           </p>
         </div>
       </div>
 
-      {/* progress */}
+      {/* progress — smooth CSS transition */}
       <div className="mt-4">
         <div className="h-1.5 overflow-hidden rounded-full bg-white/5">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-sky-400"
+            className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-sky-400 transition-[width] duration-1000 ease-linear"
             style={{ width: `${Math.min(100, progress * 100)}%` }}
           />
         </div>
@@ -184,32 +199,40 @@ export function StreamCard({ stream, wallet }: { stream: StreamLive; wallet: str
       {showActions && (
         <div className="mt-5 flex flex-wrap gap-2 border-t border-border/50 pt-4">
           {isSender && stream.status === "active" && (
-            <Button size="sm" variant="outline" className="gap-1.5" disabled={busy != null} onClick={() => run("pause")}>
-              <Pause className="size-3.5" /> Pause
-            </Button>
+            <motion.div whileTap={{ scale: 0.95 }}>
+              <Button size="sm" variant="outline" className="gap-1.5" disabled={busy != null} onClick={() => run("pause")}>
+                <Pause className="size-3.5" /> Pause
+              </Button>
+            </motion.div>
           )}
           {isSender && stream.status === "paused" && (
-            <Button size="sm" variant="outline" className="gap-1.5 text-emerald-300" disabled={busy != null} onClick={() => run("resume")}>
-              <Play className="size-3.5" /> Resume
-            </Button>
+            <motion.div whileTap={{ scale: 0.95 }}>
+              <Button size="sm" variant="outline" className="gap-1.5 text-emerald-300" disabled={busy != null} onClick={() => run("resume")}>
+                <Play className="size-3.5" /> Resume
+              </Button>
+            </motion.div>
           )}
           {isSender && (stream.status === "active" || stream.status === "paused") && (
-            <Button size="sm" variant="outline" className="gap-1.5 text-red-400 hover:text-red-300" disabled={busy != null} onClick={() => run("cancel")}>
-              <Square className="size-3.5" /> Cancel
-            </Button>
+            <motion.div whileTap={{ scale: 0.95 }}>
+              <Button size="sm" variant="outline" className="gap-1.5 text-red-400 hover:text-red-300" disabled={busy != null} onClick={() => run("cancel")}>
+                <Square className="size-3.5" /> Cancel
+              </Button>
+            </motion.div>
           )}
-          {isRecipient && claimable > 0 && stream.status !== "completed" && (
-            <Button
-              size="sm"
-              className="ml-auto gap-1.5 bg-emerald-400 font-medium text-[#04141B] hover:bg-emerald-300"
-              disabled={busy != null}
-              onClick={() => run("withdraw")}
-            >
-              <Wallet className="size-3.5" /> Withdraw {formatUnits(claimable)}
-            </Button>
+          {isRecipient && displayClaimable > 0 && stream.status !== "completed" && (
+            <motion.div whileTap={{ scale: 0.95 }} className="ml-auto">
+              <Button
+                size="sm"
+                className="gap-1.5 bg-emerald-400 font-medium text-[#04141B] hover:bg-emerald-300"
+                disabled={busy != null}
+                onClick={() => run("withdraw")}
+              >
+                <Wallet className="size-3.5" /> Withdraw {formatUnits(Math.round(displayClaimable))}
+              </Button>
+            </motion.div>
           )}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

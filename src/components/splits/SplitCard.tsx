@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SplitShareEditor, type ShareRow } from "@/components/splits/SplitShareEditor";
 import { HandCoins, Pencil, Plus, Split, Trash2, TrendingUp } from "lucide-react";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
 
 export interface SplitShare {
@@ -117,7 +118,12 @@ export function SplitCard({ split, wallet }: { split: SplitDoc; wallet: string |
   };
 
   return (
-    <div className="rounded-xl border border-border/70 bg-card/60 p-5">
+    <motion.div
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.995 }}
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      className="rounded-xl border border-border/70 bg-card/60 p-5"
+    >
       {/* header */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
@@ -157,7 +163,7 @@ export function SplitCard({ split, wallet }: { split: SplitDoc; wallet: string |
         </div>
       </div>
 
-      {/* shares */}
+      {/* shares — animated bars */}
       <div className="mt-5 space-y-3">
         {split.shares.map((s, i) => (
           <div key={s.walletAddress} className="flex items-center gap-3">
@@ -174,25 +180,30 @@ export function SplitCard({ split, wallet }: { split: SplitDoc; wallet: string |
               </p>
             </div>
             <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/5">
-              <div
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${(s.basisPoints / 100)}%` }}
+                transition={{ duration: 0.8, delay: i * 0.1, ease: "easeOut" }}
                 className="h-full rounded-full"
-                style={{ width: `${(s.basisPoints / 100)}%`, background: BAR_COLORS[i % BAR_COLORS.length] }}
+                style={{ background: BAR_COLORS[i % BAR_COLORS.length] }}
               />
             </div>
             {myShare && myShare.walletAddress === s.walletAddress && s.pending > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5 text-emerald-300"
-                disabled={busy != null}
-                onClick={() =>
-                  run("claim", () =>
-                    claim({ id: split._id as never, walletAddress: wallet!, txHash: simulateTxHash("claim") }),
-                  )
-                }
-              >
-                <HandCoins className="size-3.5" /> Claim
-              </Button>
+              <motion.div whileTap={{ scale: 0.95 }}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-emerald-300"
+                  disabled={busy != null}
+                  onClick={() =>
+                    run("claim", () =>
+                      claim({ id: split._id as never, walletAddress: wallet!, txHash: simulateTxHash("claim") }),
+                    )
+                  }
+                >
+                  <HandCoins className="size-3.5" /> Claim
+                </Button>
+              </motion.div>
             )}
             {isOwner && s.pending === 0 && (
               <Button
@@ -222,23 +233,27 @@ export function SplitCard({ split, wallet }: { split: SplitDoc; wallet: string |
             inputMode="decimal"
             className="h-8 w-40 font-mono text-xs"
           />
-          <Button size="sm" variant="outline" type="submit" className="gap-1.5" disabled={busy != null || !wallet}>
-            <Plus className="size-3.5" /> Deposit
-          </Button>
+          <motion.div whileTap={{ scale: 0.95 }}>
+            <Button size="sm" variant="outline" type="submit" className="gap-1.5" disabled={busy != null || !wallet}>
+              <Plus className="size-3.5" /> Deposit
+            </Button>
+          </motion.div>
         </form>
         {isOwner && allocatable > 0 && (
-          <Button
-            size="sm"
-            className="ml-auto gap-1.5 bg-cyan-400 font-medium text-[#04141B] hover:bg-cyan-300"
-            disabled={busy != null}
-            onClick={() =>
-              run("distribute", () =>
-                distribute({ id: split._id as never, walletAddress: wallet!, txHash: simulateTxHash("dist") }),
-              )
-            }
-          >
-            <TrendingUp className="size-3.5" /> Distribute {formatUnits(allocatable)}
-          </Button>
+          <motion.div whileTap={{ scale: 0.95 }} className="ml-auto">
+            <Button
+              size="sm"
+              className="gap-1.5 bg-cyan-400 font-medium text-[#04141B] hover:bg-cyan-300"
+              disabled={busy != null}
+              onClick={() =>
+                run("distribute", () =>
+                  distribute({ id: split._id as never, walletAddress: wallet!, txHash: simulateTxHash("dist") }),
+                )
+              }
+            >
+              <TrendingUp className="size-3.5" /> Distribute {formatUnits(allocatable)}
+            </Button>
+          </motion.div>
         )}
       </div>
 
@@ -271,6 +286,6 @@ export function SplitCard({ split, wallet }: { split: SplitDoc; wallet: string |
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   );
 }

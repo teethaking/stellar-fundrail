@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { motion } from "framer-motion";
 import { Github, Globe, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatUnitsCompact, shortAddress } from "@/lib/stellar";
@@ -26,9 +27,10 @@ export function ProjectCard({ project }: { project: ProjectSummary }) {
   const hue = hashHue(project.slug);
 
   return (
+    <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.995 }} transition={{ type: "spring", stiffness: 400, damping: 30 }}>
     <Link
       to={`/project/${project.slug}`}
-      className="group relative flex flex-col overflow-hidden rounded-xl border border-border/70 bg-card/60 transition-all hover:-translate-y-0.5 hover:border-cyan-400/30 hover:bg-card"
+      className="group relative flex flex-col overflow-hidden rounded-xl border border-border/70 bg-card/60 transition-all hover:border-cyan-400/30 hover:bg-card"
     >
       <div
         className="flex h-24 items-center justify-center border-b border-border/50"
@@ -86,5 +88,6 @@ export function ProjectCard({ project }: { project: ProjectSummary }) {
         </div>
       </div>
     </Link>
+    </motion.div>
   );
 }

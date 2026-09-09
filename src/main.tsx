@@ -5,8 +5,10 @@ import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
 import React, { StrictMode, useEffect, lazy, Suspense } from "react";
+import { Loader2 } from "lucide-react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router";
+import { AnimatePresence, motion } from "framer-motion";
 import "./index.css";
 
 // Lazy load route components for better code splitting
@@ -26,8 +28,22 @@ const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 function RouteLoading() {
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-pulse text-muted-foreground">Loading...</div>
+      <Loader2 className="size-5 animate-spin text-muted-foreground" />
     </div>
+  );
+}
+
+// Framer Motion wrapper for route page transitions
+function Page({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+    >
+      {children}
+    </motion.div>
   );
 }
 
@@ -114,6 +130,30 @@ function RouteSyncer() {
   return null;
 }
 
+// Animated route wrapper — provides smooth page transitions
+function AnimatedRoutes() {
+  const location = useLocation();
+  return (
+    <AnimatePresence mode="wait">
+      <Suspense fallback={<RouteLoading />} key={location.pathname}>
+        <Routes location={location}>
+          <Route path="/" element={<Page><Landing /></Page>} />
+          <Route path="/auth" element={<Page><AuthPage redirectAfterAuth="/dashboard" /></Page>} />
+          <Route path="/explore" element={<Page><Explore /></Page>} />
+          <Route path="/project/:slug" element={<Page><ProjectDetail /></Page>} />
+          <Route path="/dashboard" element={<Page><RequireAuth><Dashboard /></RequireAuth></Page>} />
+          <Route path="/streams" element={<Page><Streams /></Page>} />
+          <Route path="/splitter" element={<Page><Splitter /></Page>} />
+          <Route path="/activity" element={<Page><Activity /></Page>} />
+          <Route path="/docs" element={<Page><Docs /></Page>} />
+          <Route path="/about" element={<Page><About /></Page>} />
+          <Route path="*" element={<Page><NotFound /></Page>} />
+        </Routes>
+      </Suspense>
+    </AnimatePresence>
+  );
+}
+
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -124,31 +164,7 @@ createRoot(document.getElementById("root")!).render(
       <ConvexAuthProvider client={convex}>
         <BrowserRouter>
           <RouteSyncer />
-          <Suspense fallback={<RouteLoading />}>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route
-                path="/auth"
-                element={<AuthPage redirectAfterAuth="/dashboard" />}
-              />
-              <Route path="/explore" element={<Explore />} />
-              <Route path="/project/:slug" element={<ProjectDetail />} />
-              <Route
-                path="/dashboard"
-                element={
-                  <RequireAuth>
-                    <Dashboard />
-                  </RequireAuth>
-                }
-              />
-              <Route path="/streams" element={<Streams />} />
-              <Route path="/splitter" element={<Splitter />} />
-              <Route path="/activity" element={<Activity />} />
-              <Route path="/docs" element={<Docs />} />
-              <Route path="/about" element={<About />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
+          <AnimatedRoutes />
         </BrowserRouter>
         <Toaster />
       </ConvexAuthProvider>

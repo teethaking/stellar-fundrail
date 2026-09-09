@@ -30,6 +30,8 @@ import {
   Square,
   TrendingUp,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 type ActivityDoc = Doc<"activities">;
 
@@ -49,6 +51,15 @@ const TYPE_META: Record<string, { label: string; icon: typeof Heart }> = {
 };
 
 const TYPE_KEYS = Object.keys(TYPE_META);
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.04 } },
+};
+const slideIn = {
+  hidden: { opacity: 0, x: -12 },
+  show: { opacity: 1, x: 0, transition: { duration: 0.3, ease: "easeOut" } },
+};
 
 export default function Activity() {
   const { wallet } = useWallet();
@@ -159,49 +170,61 @@ function ActivityList({ rows, wallet }: { rows: ActivityDoc[] | undefined; walle
   }
   return (
     <div className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/70 bg-card/40">
-      {rows.map((a) => {
-        const meta = TYPE_META[a.type] ?? { label: a.type.replace(/_/g, " "), icon: History };
-        const Icon = meta.icon;
-        return (
-          <div key={a._id} className="flex items-start gap-3 px-4 py-3.5 sm:items-center">
-            <span
-              className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
-                a.direction === "in" ? "bg-emerald-400/10 text-emerald-300" : "bg-rose-400/10 text-rose-300"
-              }`}
+      <AnimatePresence initial={false}>
+        {rows.map((a, i) => {
+          const meta = TYPE_META[a.type] ?? { label: a.type.replace(/_/g, " "), icon: History };
+          const Icon = meta.icon;
+          return (
+            <motion.div
+              key={a._id}
+              initial={{ opacity: 0, x: -12, height: 0 }}
+              animate={{ opacity: 1, x: 0, height: "auto" }}
+              exit={{ opacity: 0, x: 12 }}
+              transition={{ duration: 0.3, delay: Math.min(i * 0.02, 0.3) }}
+              className={cn(
+                "flex items-start gap-3 px-4 py-3.5 sm:items-center",
+                i === 0 && "highlight-new",
+              )}
             >
-              <Icon className="size-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium capitalize">{meta.label}</p>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                {a.note ?? a.type.replace(/_/g, " ")}
-              </p>
-              <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-[10px] text-muted-foreground/80">
-                <span>{timeAgo(a.createdAt)}</span>
-                {a.counterparty && (
-                  <span className="flex items-center gap-1">
-                    {a.direction === "in" ? (
-                      <ArrowDownLeft className="size-3 text-emerald-400/70" />
-                    ) : (
-                      <ArrowUpRight className="size-3 text-rose-400/70" />
-                    )}
-                    {shortAddress(a.counterparty, 6)}
-                  </span>
-                )}
-                {a.txHash && <span className="truncate">{a.txHash}</span>}
-              </p>
-            </div>
-            {a.amount != null && (
-              <div className="shrink-0 text-right">
-                <p className={`font-mono text-sm font-semibold ${a.direction === "in" ? "text-emerald-300" : "text-rose-300"}`}>
-                  {a.direction === "in" ? "+" : "−"}{formatUnits(a.amount)}
+              <span
+                className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
+                  a.direction === "in" ? "bg-emerald-400/10 text-emerald-300" : "bg-rose-400/10 text-rose-300"
+                }`}
+              >
+                <Icon className="size-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium capitalize">{meta.label}</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {a.note ?? a.type.replace(/_/g, " ")}
                 </p>
-                <p className="font-mono text-[10px] text-muted-foreground">{a.token ?? "—"}</p>
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-[10px] text-muted-foreground/80">
+                  <span>{timeAgo(a.createdAt)}</span>
+                  {a.counterparty && (
+                    <span className="flex items-center gap-1">
+                      {a.direction === "in" ? (
+                        <ArrowDownLeft className="size-3 text-emerald-400/70" />
+                      ) : (
+                        <ArrowUpRight className="size-3 text-rose-400/70" />
+                      )}
+                      {shortAddress(a.counterparty, 6)}
+                    </span>
+                  )}
+                  {a.txHash && <span className="truncate">{a.txHash}</span>}
+                </p>
               </div>
-            )}
-          </div>
-        );
-      })}
+              {a.amount != null && (
+                <div className="shrink-0 text-right">
+                  <p className={`font-mono text-sm font-semibold ${a.direction === "in" ? "text-emerald-300" : "text-rose-300"}`}>
+                    {a.direction === "in" ? "+" : "−"}{formatUnits(a.amount)}
+                  </p>
+                  <p className="font-mono text-[10px] text-muted-foreground">{a.token ?? "—"}</p>
+                </div>
+              )}
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
     </div>
   );
 }

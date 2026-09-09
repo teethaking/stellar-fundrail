@@ -11,6 +11,15 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { Compass, Loader2, Plus, Search } from "lucide-react";
 import { motion } from "framer-motion";
 
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.05 } },
+};
+const fadeSlideUp = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } },
+};
+
 export default function Explore() {
   const navigate = useNavigate();
   const projects = useQuery(api.projects.list, { limit: 100 });
@@ -113,18 +122,18 @@ export default function Explore() {
           </EmptyContent>
         </Empty>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((p, i) => (
-            <motion.div
-              key={p.slug}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(i * 0.04, 0.4), duration: 0.35 }}
-            >
+        <motion.div
+          variants={stagger}
+          initial="hidden"
+          animate="show"
+          className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          {filtered.map((p) => (
+            <motion.div key={p.slug} variants={fadeSlideUp}>
               <ProjectCard project={p} />
             </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
 
       <RegisterProjectDialog open={registerOpen} onOpenChange={setRegisterOpen} onRegistered={(slug) => navigate(`/project/${slug}`)} />
