@@ -103,36 +103,15 @@ class RootErrorBoundary extends React.Component<
   }
 }
 
-// Read the Convex deployment URL from build-time env.
-// On a freshly cloned repo or a CI build where VITE_CONVEX_URL isn't set, this
-// is undefined — instead of crashing with a blank page, we render a clear
-// configuration message (see MissingConvexConfig below).
-const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string | undefined;
+// Convex deployment URL: env var takes precedence; falls back to the project's
+// deployment so builds without env config (e.g. a plain Vercel build) still
+// work. A Convex deployment URL is a public identifier, not a secret, so the
+// literal fallback is safe.
+const CONVEX_URL =
+  (import.meta.env.VITE_CONVEX_URL as string | undefined) ||
+  "https://wooden-husky-490.convex.cloud";
 
-/** Clear, self-explanatory screen shown when the Convex deployment URL is not
- *  configured at build time (e.g. deploying to Vercel without env vars). */
-function MissingConvexConfig() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
-      <div className="w-full max-w-md rounded-xl border border-border/60 bg-card p-6 text-center">
-        <p className="text-sm font-semibold tracking-tight">
-          Backend not configured
-        </p>
-        <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          This deployment was built without <code className="font-mono text-cyan-300">VITE_CONVEX_URL</code>,
-          so the app can't reach its backend. Add the env var in your hosting
-          provider's project settings (Vercel → Settings → Environment Variables)
-          and redeploy.
-        </p>
-        <p className="mt-3 font-mono text-[11px] text-muted-foreground/70">
-          VITE_CONVEX_URL=https://&lt;deployment&gt;.convex.cloud
-        </p>
-      </div>
-    </div>
-  );
-}
-
-const convex = CONVEX_URL ? new ConvexReactClient(CONVEX_URL) : null;
+const convex = new ConvexReactClient(CONVEX_URL);
 
 function RouteSyncer() {
   const location = useLocation();
@@ -188,17 +167,13 @@ const app = (
       <ToolbarErrorBoundary>
         <VlyToolbar />
       </ToolbarErrorBoundary>
-      {convex ? (
-        <ConvexAuthProvider client={convex}>
-          <BrowserRouter>
-            <RouteSyncer />
-            <AnimatedRoutes />
-          </BrowserRouter>
-          <Toaster />
-        </ConvexAuthProvider>
-      ) : (
-        <MissingConvexConfig />
-      )}
+      <ConvexAuthProvider client={convex}>
+        <BrowserRouter>
+          <RouteSyncer />
+          <AnimatedRoutes />
+        </BrowserRouter>
+        <Toaster />
+      </ConvexAuthProvider>
     </RootErrorBoundary>
   </StrictMode>
 );
