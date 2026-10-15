@@ -92,6 +92,11 @@ soroban contract deploy \
   --source alice --network testnet
 ```
 
+Prefer a fully local loop? See
+[Testing locally with a Soroban standalone node](CONTRIBUTING.md#testing-locally-with-a-soroban-standalone-node)
+for running a standalone network in Docker, building with `stellar contract build`, and
+deploying and invoking against it — no Testnet funds required.
+
 ## CI/CD
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every push/PR:
