@@ -1,16 +1,9 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useNow } from "@/hooks/use-now";
 import { useAnimatedNumber } from "@/hooks/use-animated-number";
-import {
-  accruedAmount,
-  claimableAmount,
-  formatRatePerDay,
-  msRemaining,
-  streamProgress,
-  type StreamStatus,
-} from "@/lib/stream-math";
+import { useStreamingBalance } from "@/hooks/use-streaming-balance";
+import { type StreamStatus } from "@/lib/stream-math";
 import { formatDuration, formatUnits, shortAddress, simulateTxHash } from "@/lib/stellar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,7 +37,10 @@ const STATUS_STYLE: Record<StreamStatus, string> = {
 };
 
 export function StreamCard({ stream, wallet }: { stream: StreamLive; wallet: string | null }) {
-  const now = useNow();
+  // Live vesting snapshot: vested/claimable tick once per second from the
+  // shared stream clock (see useStreamingBalance).
+  const { now, vested, claimable, progress, remainingMs, flowPerSecond } =
+    useStreamingBalance(stream);
   const [busy, setBusy] = useState<string | null>(null);
 
   const pause = useMutation(api.streams.pauseStream);
@@ -52,14 +48,9 @@ export function StreamCard({ stream, wallet }: { stream: StreamLive; wallet: str
   const cancel = useMutation(api.streams.cancelStream);
   const withdraw = useMutation(api.streams.withdrawStream);
 
-  const rawAccrued = accruedAmount(stream, now);
-  const rawClaimable = claimableAmount(stream, now);
-  const progress = streamProgress(stream, now);
-  const remaining = msRemaining(stream, now);
-
-  // Smoothly animate numeric values
-  const displayAccrued = useAnimatedNumber(rawAccrued, 800);
-  const displayClaimable = useAnimatedNumber(rawClaimable, 800);
+  // Smoothly interpolate the tick-to-tick jumps into continuous motion
+  const displayAccrued = useAnimatedNumber(vested, 800);
+  const displayClaimable = useAnimatedNumber(claimable, 800);
 
   const isSender = wallet != null && wallet === stream.senderWallet;
   const isRecipient = wallet != null && wallet === stream.recipientWallet;
@@ -123,9 +114,7 @@ export function StreamCard({ stream, wallet }: { stream: StreamLive; wallet: str
             {stream.status}
           </Badge>
         </div>
-        <span className="font-mono text-xs text-muted-foreground">
-          {formatUnits(stream.rate * 86_400_000)} {stream.token}/day
-        </span>
+        <FlowCounter stream={stream} flowPerSecond={flowPerSecond} />
       </div>
 
       {/* rail */}
@@ -189,7 +178,7 @@ export function StreamCard({ stream, wallet }: { stream: StreamLive; wallet: str
                 ? "cancelled"
                 : stream.status === "completed"
                   ? "completed"
-                  : `${formatDuration(remaining)} left`}
+                  : `${formatDuration(remainingMs)} left`}
           </span>
           <span>{Math.round(progress * 100)}%</span>
         </div>
@@ -234,5 +223,44 @@ export function StreamCard({ stream, wallet }: { stream: StreamLive; wallet: str
         </div>
       )}
     </motion.div>
+  );
+}
+
+/**
+ * Live flow counter for the header: while the stream is flowing it shows the
+ * exact per-second rate ticking into the accrued balance; otherwise it falls
+ * back to the headline per-day rate.
+ */
+function FlowCounter({
+  stream,
+  flowPerSecond,
+}: {
+  stream: StreamLive;
+  flowPerSecond: number;
+}) {
+  const flowing = flowPerSecond > 0;
+  return (
+    <span
+      className={`flex items-center gap-1.5 font-mono text-xs ${
+        flowing ? "text-cyan-200" : "text-muted-foreground"
+      }`}
+      aria-label={
+        flowing
+          ? `Flowing ${formatUnits(flowPerSecond)} ${stream.token} per second`
+          : undefined
+      }
+    >
+      {flowing && (
+        <span className="relative flex size-1.5" aria-hidden>
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-cyan-300 opacity-60" />
+          <span className="relative inline-flex size-1.5 rounded-full bg-cyan-300" />
+        </span>
+      )}
+      <span>
+        {flowing
+          ? `+${formatUnits(flowPerSecond)} ${stream.token}/sec`
+          : `${formatUnits(stream.rate * 86_400_000)} ${stream.token}/day`}
+      </span>
+    </span>
   );
 }
